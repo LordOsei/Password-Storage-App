@@ -5,7 +5,13 @@
 <form method="post" action="/secrets/{{ secret.id }}/update" class="entry-form">
   <label>Site<input type="text" name="site" value="{{ secret.site }}" required></label>
   <label>Username<input type="text" name="username" value="{{ secret.username }}" required></label>
-  <label>Password <small>(leave blank to keep unchanged)</small><input type="text" name="password"></label>
+  <label>Password <small>(leave blank to keep unchanged)</small>
+    <span class="pw-field">
+      <input type="password" name="password" autocomplete="new-password">
+      <button type="button" class="toggle-pw-btn">Show</button>
+      <button type="button" class="generate-btn">Generate</button>
+    </span>
+  </label>
   <label>Notes<textarea name="notes" maxlength="256">{{ secret.notes }}</textarea></label>
   <button type="submit">Save</button>
   <a href="/">Cancel</a>

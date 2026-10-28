@@ -10,7 +10,7 @@ A small FastAPI password manager for a trusted group. There is **no database**: 
 
 ```bash
 source .venv/bin/activate
-pip install -r requirements.txt
+pip install -r requirements-dev.txt                    # app deps + pytest/httpx
 
 uvicorn app.main:app --reload --port 8000              # run locally (needs .env and `az login`)
 pytest                                                 # all tests
@@ -54,7 +54,9 @@ There is no linter or formatter configured. Production startup is `gunicorn -w 2
 - `app/routes/secrets.py` handles form POSTs, which use the redirect-after-POST pattern (303 redirect to `/`).
 - `GET /secrets/{id}/reveal` is the only JSON endpoint. `app/static/app.js` calls it to reveal a password and copy it to the clipboard.
 - `/healthz` is the health check.
+- A middleware in `app/main.py` rejects cross-site non-GET requests (via `Sec-Fetch-Site`, falling back to `Origin` vs `Host`), sets CSP and anti-framing headers, and marks every non-static response `Cache-Control: no-store`. The CSP forbids inline scripts and styles, so put JS in `app.js` and CSS in `style.css`. For example, delete confirmation uses `data-confirm` on the form.
+- `AUTH_MODE` must be `header` or `dev`. `dev` requires `LOCAL_DEV_USER` and is refused when `WEBSITE_SITE_NAME` is set (that is, on App Service).
 
 ## Testing
 
-`tests/test_keyvault.py` monkeypatches `keyvault._client` with a `MagicMock` in an autouse fixture, so tests never reach Azure. The `FakeProps` and `FakeSecret` helpers stand in for SDK objects. Routes and templates have no tests.
+`tests/test_keyvault.py` monkeypatches `keyvault._client` with a `MagicMock` in an autouse fixture, so tests never reach Azure. The `FakeProps` and `FakeSecret` helpers stand in for SDK objects. `tests/test_routes.py` does the same and drives the app through `TestClient` in `header` auth mode (auth, ownership, CSRF, headers). `tests/test_config.py` covers the `AUTH_MODE` validation. `pytest.ini` puts the repo root on `pythonpath`.
