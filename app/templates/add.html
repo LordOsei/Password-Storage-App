@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Add Password{% endblock %}
+{% block content %}
+<h2>Add password</h2>
+<form method="post" action="/secrets" class="entry-form">
+  <label>Site<input type="text" name="site" required></label>
+  <label>Username<input type="text" name="username" required></label>
+  <label>Password<input type="text" name="password" required></label>
+  <label>Notes<textarea name="notes" maxlength="256"></textarea></label>
+  <button type="submit">Save</button>
+  <a href="/">Cancel</a>
+</form>
+{% endblock %}

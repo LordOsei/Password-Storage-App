@@ -1,0 +1,8 @@
+fastapi
+uvicorn[standard]
+gunicorn
+jinja2
+python-multipart
+azure-identity
+azure-keyvault-secrets
+pydantic-settings

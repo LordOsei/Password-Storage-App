@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}My Passwords{% endblock %}
+{% block content %}
+<p><a class="button" href="/add">+ Add password</a></p>
+
+{% if not secrets %}
+<p class="empty">No saved passwords yet.</p>
+{% else %}
+<table>
+  <thead>
+    <tr><th>Site</th><th>Username</th><th>Password</th><th>Notes</th><th></th></tr>
+  </thead>
+  <tbody>
+    {% for s in secrets %}
+    <tr data-id="{{ s.id }}">
+      <td>{{ s.site }}</td>
+      <td>{{ s.username }}</td>
+      <td>
+        <span class="pw-mask">••••••••</span>
+        <span class="pw-value" hidden></span>
+        <button class="reveal-btn" data-id="{{ s.id }}">Reveal</button>
+        <button class="copy-btn" data-id="{{ s.id }}" hidden>Copy</button>
+      </td>
+      <td>{{ s.notes }}</td>
+      <td>
+        <a href="/secrets/{{ s.id }}/edit">Edit</a>
+        <form method="post" action="/secrets/{{ s.id }}/delete" onsubmit="return confirm('Delete this entry?');" style="display:inline">
+          <button type="submit">Delete</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+{% endblock %}

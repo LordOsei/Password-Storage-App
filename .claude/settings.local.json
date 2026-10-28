@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(az webapp create *)",
+      "Bash(az webapp config set *)",
+      "Bash(az webapp up *)",
+      "Bash(curl -sI --max-time 15 https://pwstore-app-254439.azurewebsites.net/)",
+      "Bash(curl -sv --max-time 15 https://pwstore-app-254439.azurewebsites.net/ -o /dev/null)",
+      "Bash(nslookup pwstore-app-254439.azurewebsites.net)",
+      "Bash(curl *)",
+      "Bash(az ad *)",
+      "Bash(az webapp *)"
+    ]
+  }
+}
