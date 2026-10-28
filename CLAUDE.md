@@ -38,7 +38,7 @@ There is no linter or formatter configured. Production startup is `gunicorn -w 2
 - The list view reads only tags (`list_properties_of_secrets`), so it never fetches a password value. Keep it that way.
 - Field limits in `app/models.py` (such as `notes` ≤ 256) exist because Key Vault caps the length of tag values.
 
-**Ownership enforcement**: every per-entry operation (reveal, get_summary, update, delete) goes through `_fetch_owned`. It returns 404 when the secret is missing and 403 when the `owner` tag doesn't match the current user. Any new per-entry operation must also call `_fetch_owned`. The UI is not trusted for this check.
+**Ownership enforcement**: every per-entry operation (reveal, get_summary, update, delete) goes through `_fetch_owned`. It returns 404 when the id doesn't match `pw-<32 hex>` (without touching the vault) or the secret is missing and 403 when the `owner` tag doesn't match the current user. Any new per-entry operation must also call `_fetch_owned`. The UI is not trusted for this check.
 
 **Updates and versions**: `update` calls `set_secret` (which creates a new secret version) only when a new password is supplied. Otherwise it calls `update_secret_properties`, which changes tags without creating a version. Tests rely on this distinction.
 

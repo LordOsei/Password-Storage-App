@@ -12,6 +12,11 @@
     {% if user %}<span class="user">{{ user }}</span>{% endif %}
   </header>
   <main>
+    {% if errors %}
+    <div class="errors" role="alert">
+      <ul>{% for e in errors %}<li>{{ e }}</li>{% endfor %}</ul>
+    </div>
+    {% endif %}
     {% block content %}{% endblock %}
   </main>
   <script src="/static/app.js"></script>

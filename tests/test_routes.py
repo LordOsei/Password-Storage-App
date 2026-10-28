@@ -11,6 +11,9 @@ from app import keyvault
 from app.config import settings
 from app.main import app
 
+ID = "pw-" + "1" * 32
+MISSING_ID = "pw-" + "0" * 32
+
 ALICE = {"X-MS-CLIENT-PRINCIPAL-NAME": "alice@example.com"}
 MALLORY = {"X-MS-CLIENT-PRINCIPAL-NAME": "mallory@example.com"}
 FORM = {"site": "a.com", "username": "alice", "password": "pw", "notes": ""}
@@ -45,7 +48,7 @@ def client():
 @pytest.fixture
 def alice_secret(fake_client):
     fake_client.get_secret.return_value = FakeSecret(
-        "pw-1", "secretpass", {"owner": "alice@example.com", "site": "a.com", "username": "alice", "notes": ""}
+        ID, "secretpass", {"owner": "alice@example.com", "site": "a.com", "username": "alice", "notes": ""}
     )
 
 
@@ -59,7 +62,7 @@ def test_missing_auth_header_is_401(client):
 
 def test_index_lists_only_own_entries_without_fetching_values(client, fake_client):
     fake_client.list_properties_of_secrets.return_value = [
-        FakeProps("pw-1", {"owner": "alice@example.com", "site": "alice-site.com", "username": "a", "created_at": "1"}),
+        FakeProps(ID, {"owner": "alice@example.com", "site": "alice-site.com", "username": "a", "created_at": "1"}),
         FakeProps("pw-2", {"owner": "bob@example.com", "site": "bob-site.com", "username": "b", "created_at": "2"}),
     ]
     res = client.get("/", headers=ALICE)
@@ -70,23 +73,23 @@ def test_index_lists_only_own_entries_without_fetching_values(client, fake_clien
 
 
 def test_reveal_returns_password_and_is_not_cached(client, alice_secret):
-    res = client.get("/secrets/pw-1/reveal", headers=ALICE)
+    res = client.get(f"/secrets/{ID}/reveal", headers=ALICE)
     assert res.status_code == 200
     assert res.json() == {"password": "secretpass"}
     assert res.headers["cache-control"] == "no-store"
 
 
 def test_reveal_forbidden_for_non_owner(client, alice_secret):
-    assert client.get("/secrets/pw-1/reveal", headers=MALLORY).status_code == 403
+    assert client.get(f"/secrets/{ID}/reveal", headers=MALLORY).status_code == 403
 
 
 def test_reveal_not_found(client, fake_client):
     fake_client.get_secret.side_effect = ResourceNotFoundError("missing")
-    assert client.get("/secrets/pw-missing/reveal", headers=ALICE).status_code == 404
+    assert client.get(f"/secrets/{MISSING_ID}/reveal", headers=ALICE).status_code == 404
 
 
 def test_edit_form_forbidden_for_non_owner(client, alice_secret):
-    assert client.get("/secrets/pw-1/edit", headers=MALLORY).status_code == 403
+    assert client.get(f"/secrets/{ID}/edit", headers=MALLORY).status_code == 403
 
 
 def test_create_redirects_and_tags_owner(client, fake_client):
@@ -97,21 +100,21 @@ def test_create_redirects_and_tags_owner(client, fake_client):
 
 
 def test_update_without_password_only_updates_tags(client, fake_client, alice_secret):
-    res = client.post("/secrets/pw-1/update", data={**FORM, "password": ""}, headers=ALICE)
+    res = client.post(f"/secrets/{ID}/update", data={**FORM, "password": ""}, headers=ALICE)
     assert res.status_code == 303
     fake_client.update_secret_properties.assert_called_once()
     fake_client.set_secret.assert_not_called()
 
 
 def test_delete_forbidden_for_non_owner(client, fake_client, alice_secret):
-    assert client.post("/secrets/pw-1/delete", headers=MALLORY).status_code == 403
+    assert client.post(f"/secrets/{ID}/delete", headers=MALLORY).status_code == 403
     fake_client.begin_delete_secret.assert_not_called()
 
 
 def test_delete_redirects_for_owner(client, fake_client, alice_secret):
-    res = client.post("/secrets/pw-1/delete", headers=ALICE)
+    res = client.post(f"/secrets/{ID}/delete", headers=ALICE)
     assert res.status_code == 303
-    fake_client.begin_delete_secret.assert_called_once_with("pw-1")
+    fake_client.begin_delete_secret.assert_called_once_with(ID)
 
 
 @pytest.mark.parametrize("extra", [
@@ -120,7 +123,7 @@ def test_delete_redirects_for_owner(client, fake_client, alice_secret):
     {"Origin": "https://evil.example.com"},
 ])
 def test_cross_site_post_is_blocked(client, fake_client, alice_secret, extra):
-    res = client.post("/secrets/pw-1/delete", headers={**ALICE, **extra})
+    res = client.post(f"/secrets/{ID}/delete", headers={**ALICE, **extra})
     assert res.status_code == 403
     fake_client.begin_delete_secret.assert_not_called()
 
@@ -130,7 +133,7 @@ def test_cross_site_post_is_blocked(client, fake_client, alice_secret, extra):
     {"Origin": "http://testserver"},
 ])
 def test_same_origin_post_is_allowed(client, fake_client, alice_secret, extra):
-    res = client.post("/secrets/pw-1/delete", headers={**ALICE, **extra})
+    res = client.post(f"/secrets/{ID}/delete", headers={**ALICE, **extra})
     assert res.status_code == 303
     fake_client.begin_delete_secret.assert_called_once()
 
@@ -147,3 +150,31 @@ def test_static_files_are_cacheable(client):
     res = client.get("/static/app.js")
     assert res.status_code == 200
     assert res.headers.get("cache-control") != "no-store"
+
+
+def test_reveal_malformed_id_is_404(client, fake_client):
+    assert client.get("/secrets/not-a-pw-id/reveal", headers=ALICE).status_code == 404
+    fake_client.get_secret.assert_not_called()
+
+
+def test_create_invalid_input_rerenders_form(client, fake_client):
+    res = client.post("/secrets", data={**FORM, "site": "x" * 201, "password": "typed-secret"}, headers=ALICE)
+    assert res.status_code == 422
+    assert "Site: String should have at most 200 characters" in res.text
+    assert 'value="alice"' in res.text  # username kept
+    assert "typed-secret" not in res.text  # password never echoed
+    fake_client.set_secret.assert_not_called()
+
+
+def test_update_invalid_input_rerenders_form(client, fake_client, alice_secret):
+    res = client.post(f"/secrets/{ID}/update", data={**FORM, "notes": "n" * 257}, headers=ALICE)
+    assert res.status_code == 422
+    assert "Notes: String should have at most 256 characters" in res.text
+    fake_client.update_secret_properties.assert_not_called()
+    fake_client.set_secret.assert_not_called()
+
+
+def test_update_invalid_input_still_checks_ownership(client, fake_client, alice_secret):
+    res = client.post(f"/secrets/{ID}/update", data={**FORM, "notes": "n" * 257}, headers=MALLORY)
+    assert res.status_code == 403
+    assert "n" * 257 not in res.text

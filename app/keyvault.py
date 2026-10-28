@@ -1,3 +1,4 @@
+import re
 import uuid
 from datetime import datetime, timezone
 
@@ -8,6 +9,8 @@ from fastapi import HTTPException
 
 from app.config import settings
 from app.models import SecretCreate, SecretSummary, SecretUpdate
+
+_ID_PATTERN = re.compile(r"pw-[0-9a-f]{32}")
 
 _client = SecretClient(vault_url=settings.key_vault_url, credential=DefaultAzureCredential())
 
@@ -52,6 +55,9 @@ def create(owner: str, data: SecretCreate) -> str:
 
 
 def _fetch_owned(secret_id: str, owner: str):
+    # Only look up ids this app creates, never other secrets that happen to live in the vault.
+    if not _ID_PATTERN.fullmatch(secret_id):
+        raise HTTPException(status_code=404, detail="Not found")
     try:
         secret = _client.get_secret(secret_id)
     except ResourceNotFoundError:

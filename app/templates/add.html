@@ -1,10 +1,11 @@
 {% extends "base.html" %}
 {% block title %}Add Password{% endblock %}
 {% block content %}
+{% set form = form or {} %}
 <h2>Add password</h2>
 <form method="post" action="/secrets" class="entry-form">
-  <label>Site<input type="text" name="site" required></label>
-  <label>Username<input type="text" name="username" required></label>
+  <label>Site<input type="text" name="site" value="{{ form.site }}" maxlength="200" required></label>
+  <label>Username<input type="text" name="username" value="{{ form.username }}" maxlength="200" required></label>
   <label>Password
     <span class="pw-field">
       <input type="password" name="password" autocomplete="new-password" required>
@@ -12,7 +13,7 @@
       <button type="button" class="generate-btn">Generate</button>
     </span>
   </label>
-  <label>Notes<textarea name="notes" maxlength="256"></textarea></label>
+  <label>Notes<textarea name="notes" maxlength="256">{{ form.notes }}</textarea></label>
   <button type="submit">Save</button>
   <a href="/">Cancel</a>
 </form>

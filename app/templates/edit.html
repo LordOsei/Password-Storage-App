@@ -3,8 +3,8 @@
 {% block content %}
 <h2>Edit password</h2>
 <form method="post" action="/secrets/{{ secret.id }}/update" class="entry-form">
-  <label>Site<input type="text" name="site" value="{{ secret.site }}" required></label>
-  <label>Username<input type="text" name="username" value="{{ secret.username }}" required></label>
+  <label>Site<input type="text" name="site" value="{{ secret.site }}" maxlength="200" required></label>
+  <label>Username<input type="text" name="username" value="{{ secret.username }}" maxlength="200" required></label>
   <label>Password <small>(leave blank to keep unchanged)</small>
     <span class="pw-field">
       <input type="password" name="password" autocomplete="new-password">
