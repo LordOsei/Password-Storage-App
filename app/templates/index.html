@@ -1,7 +1,10 @@
 {% extends "base.html" %}
 {% block title %}My Passwords{% endblock %}
 {% block content %}
-<p><a class="button" href="/add">+ Add password</a></p>
+<div class="toolbar">
+  <a class="button" href="/add">+ Add password</a>
+  {% if secrets %}<input type="search" id="search" placeholder="Search site, username, notes" aria-label="Search">{% endif %}
+</div>
 
 {% if not secrets %}
 <p class="empty">No saved passwords yet.</p>
@@ -19,12 +22,12 @@
         <span class="pw-mask">••••••••</span>
         <span class="pw-value" hidden></span>
         <button class="reveal-btn" data-id="{{ s.id }}">Reveal</button>
-        <button class="copy-btn" data-id="{{ s.id }}" hidden>Copy</button>
+        <button class="copy-btn" data-id="{{ s.id }}">Copy</button>
       </td>
       <td>{{ s.notes }}</td>
       <td>
         <a href="/secrets/{{ s.id }}/edit">Edit</a>
-        <form method="post" action="/secrets/{{ s.id }}/delete" onsubmit="return confirm('Delete this entry?');" style="display:inline">
+        <form method="post" action="/secrets/{{ s.id }}/delete" class="inline-form" data-confirm="Delete this entry?">
           <button type="submit">Delete</button>
         </form>
       </td>
@@ -32,5 +35,6 @@
     {% endfor %}
   </tbody>
 </table>
+<p class="empty" id="no-matches" hidden>No entries match your search.</p>
 {% endif %}
 {% endblock %}

@@ -1,8 +1,8 @@
-fastapi
-uvicorn[standard]
-gunicorn
-jinja2
-python-multipart
-azure-identity
-azure-keyvault-secrets
-pydantic-settings
+fastapi==0.139.0
+uvicorn[standard]==0.51.0
+gunicorn==26.0.0
+jinja2==3.1.6
+python-multipart==0.0.32
+azure-identity==1.25.3
+azure-keyvault-secrets==4.11.0
+pydantic-settings==2.14.2

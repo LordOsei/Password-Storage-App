@@ -41,3 +41,10 @@ button {
 .entry-form input, .entry-form textarea { padding: 0.5rem; border: 1px solid #ccc; border-radius: 6px; font-size: 0.95rem; }
 .empty { color: #666; }
 .pw-mask { letter-spacing: 2px; }
+.toolbar { display: flex; gap: 0.8rem; align-items: center; flex-wrap: wrap; margin-bottom: 1rem; }
+.toolbar input[type="search"] { flex: 1; min-width: 180px; padding: 0.5rem; border: 1px solid #ccc; border-radius: 6px; font-size: 0.95rem; }
+.inline-form { display: inline; }
+.pw-field { display: flex; gap: 0.4rem; }
+.pw-field input { flex: 1; min-width: 0; }
+.errors { background: #fdecea; color: #8a1c1c; border: 1px solid #f5c2c0; border-radius: 8px; padding: 0.6rem 1rem; margin-bottom: 1rem; }
+.errors ul { margin: 0; padding-left: 1.2rem; }
