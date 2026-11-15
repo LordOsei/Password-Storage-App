@@ -178,3 +178,19 @@ def test_update_invalid_input_still_checks_ownership(client, fake_client, alice_
     res = client.post(f"/secrets/{ID}/update", data={**FORM, "notes": "n" * 257}, headers=MALLORY)
     assert res.status_code == 403
     assert "n" * 257 not in res.text
+
+
+def test_header_has_sign_out_link(client, fake_client):
+    fake_client.list_properties_of_secrets.return_value = []
+    res = client.get("/", headers=ALICE)
+    assert res.status_code == 200
+    assert 'href="/.auth/logout"' in res.text
+
+
+def test_sign_out_link_hidden_in_dev_mode(client, fake_client, monkeypatch):
+    monkeypatch.setattr(settings, "auth_mode", "dev")
+    monkeypatch.setattr(settings, "local_dev_user", "alice@example.com")
+    fake_client.list_properties_of_secrets.return_value = []
+    res = client.get("/")
+    assert res.status_code == 200
+    assert "/.auth/logout" not in res.text
