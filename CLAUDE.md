@@ -44,7 +44,7 @@ There is no linter or formatter configured. Production startup is `gunicorn -w 2
 
 **Delete** is a soft delete (`begin_delete_secret`), so deleted entries can still be recovered from the vault's "Deleted secrets".
 
-**Auth (`app/auth.py`)**: the `get_current_user` dependency reads the `X-MS-CLIENT-PRINCIPAL-NAME` header that Easy Auth injects. In `dev` mode it returns `LOCAL_DEV_USER` instead, so the ownership logic runs the same way locally. Every route depends on it.
+**Auth (`app/auth.py`)**: the `get_current_user` dependency reads the `X-MS-CLIENT-PRINCIPAL-NAME` header that Easy Auth injects. In `dev` mode it returns `LOCAL_DEV_USER` instead, so the ownership logic runs the same way locally. Every route depends on it, except `/healthz` and `/welcome`. `/welcome` is a deliberately public landing page that carries the Open Graph link-preview tags. Easy Auth's `excludedPaths` lets it, `/static/og-image.png` and `/static/favicon.svg` through without sign-in, so it must never show account data or touch the vault.
 
 **Credentials**: `DefaultAzureCredential` uses the App Service managed identity in production and your `az login` session locally. Both need the `Key Vault Secrets Officer` role on the vault.
 

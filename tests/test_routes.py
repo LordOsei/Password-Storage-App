@@ -225,3 +225,40 @@ def test_sign_out_link_hidden_in_dev_mode(client, fake_client, monkeypatch):
     res = client.get("/")
     assert res.status_code == 200
     assert "/.auth/logout" not in res.text
+
+
+def test_welcome_is_public_and_has_link_preview_tags(client, fake_client, monkeypatch):
+    monkeypatch.setenv("WEBSITE_HOSTNAME", "pw-app.azurewebsites.net")
+    r = client.get("/welcome")
+    assert r.status_code == 200
+    assert 'property="og:title" content="Password Store"' in r.text
+    assert 'content="https://pw-app.azurewebsites.net/static/og-image.png"' in r.text
+    assert 'href="/.auth/login/aad?post_login_redirect_uri=/"' in r.text
+    assert r.headers["Content-Security-Policy"]
+    # The public page must never touch the vault.
+    assert not fake_client.method_calls
+
+
+def test_welcome_ignores_identity_header(client, fake_client):
+    r = client.get("/welcome", headers=ALICE)
+    assert "alice@example.com" not in r.text
+    assert "Sign out" not in r.text
+
+
+def test_preview_assets_are_served(client):
+    assert client.get("/static/og-image.png").headers["content-type"] == "image/png"
+    assert client.get("/static/favicon.svg").headers["content-type"] == "image/svg+xml"
+
+
+def test_pages_have_favicon_and_titles(client, fake_client):
+    fake_client.list_properties_of_secrets.return_value = []
+    r = client.get("/", headers=ALICE)
+    assert '<link rel="icon" href="/static/favicon.svg"' in r.text
+    assert "<title>My Passwords · Password Store</title>" in r.text
+
+
+def test_welcome_does_not_reflect_host_header(client, monkeypatch):
+    monkeypatch.delenv("WEBSITE_HOSTNAME", raising=False)
+    r = client.get("/welcome", headers={"Host": "evil.example"})
+    assert r.status_code == 200
+    assert "evil.example" not in r.text

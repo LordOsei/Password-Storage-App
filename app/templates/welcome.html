@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Welcome{% endblock %}
+{% block head %}
+  {# Link-preview tags (Teams, Slack, iMessage, email). This page is public, so it must never show account data. #}
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Password Store">
+  <meta property="og:title" content="Password Store">
+  <meta property="og:description" content="Private, shared password manager for our group. Sign in with your Microsoft account.">
+  <meta property="og:url" content="{{ base_url }}/welcome">
+  <meta property="og:image" content="{{ base_url }}/static/og-image.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Password Store: a white padlock on a blue background">
+  <meta name="twitter:card" content="summary_large_image">
+{% endblock %}
+{% block content %}
+<section class="welcome">
+  <img class="welcome-icon" src="/static/favicon.svg" alt="" width="96" height="96">
+  <h2>Password Store</h2>
+  <p>Private, shared password manager for our group.</p>
+  <a class="button" href="{{ sign_in_url }}">Sign in with Microsoft</a>
+</section>
+{% endblock %}

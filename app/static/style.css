@@ -51,3 +51,8 @@ button {
 .pw-field input { flex: 1; min-width: 0; }
 .errors { background: #fdecea; color: #8a1c1c; border: 1px solid #f5c2c0; border-radius: 8px; padding: 0.6rem 1rem; margin-bottom: 1rem; }
 .errors ul { margin: 0; padding-left: 1.2rem; }
+
+.welcome { text-align: center; background: #fff; border: 1px solid #e0e0e0; border-radius: 16px; padding: 3rem 1.5rem; margin-top: 3rem; }
+.welcome-icon { display: block; margin: 0 auto 1rem; }
+.welcome h2 { margin: 0 0 0.5rem; font-size: 1.6rem; }
+.welcome p { color: #666; margin: 0 0 1.75rem; }
