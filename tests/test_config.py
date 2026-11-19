@@ -13,6 +13,9 @@ VAULT = "https://test-vault.vault.azure.net/"
 @pytest.fixture(autouse=True)
 def not_on_app_service(monkeypatch):
     monkeypatch.delenv("WEBSITE_SITE_NAME", raising=False)
+    # A dev shell (e.g. VS Code loading .env) may export these; the tests must not depend on it.
+    monkeypatch.delenv("AUTH_MODE", raising=False)
+    monkeypatch.delenv("LOCAL_DEV_USER", raising=False)
 
 
 def test_default_is_header_mode():
