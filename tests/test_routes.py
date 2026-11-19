@@ -138,6 +138,37 @@ def test_same_origin_post_is_allowed(client, fake_client, alice_secret, extra):
     fake_client.begin_delete_secret.assert_called_once()
 
 
+def test_null_origin_post_is_blocked(client, fake_client, alice_secret):
+    res = client.post(f"/secrets/{ID}/delete", headers={**ALICE, "Origin": "null"})
+    assert res.status_code == 403
+    fake_client.begin_delete_secret.assert_not_called()
+
+
+def test_post_allowed_when_proxy_rewrites_host_but_forwards_original(client, fake_client, alice_secret):
+    headers = {
+        **ALICE,
+        "Host": "127.0.0.1:8000",
+        "X-Forwarded-Host": "pwstore.example.net",
+        "Origin": "https://pwstore.example.net",
+    }
+    res = client.post(f"/secrets/{ID}/delete", headers=headers)
+    assert res.status_code == 303
+    fake_client.begin_delete_secret.assert_called_once()
+
+
+def test_post_allowed_when_origin_matches_app_service_hostname(client, fake_client, alice_secret, monkeypatch):
+    monkeypatch.setenv("WEBSITE_HOSTNAME", "pwstore.example.net")
+    headers = {**ALICE, "Host": "127.0.0.1:8000", "Origin": "https://pwstore.example.net"}
+    res = client.post(f"/secrets/{ID}/delete", headers=headers)
+    assert res.status_code == 303
+
+
+def test_referrer_policy_keeps_origin_on_own_posts(client, fake_client):
+    fake_client.list_properties_of_secrets.return_value = []
+    res = client.get("/", headers=ALICE)
+    assert res.headers["referrer-policy"] == "same-origin"
+
+
 def test_security_headers_present(client, fake_client):
     fake_client.list_properties_of_secrets.return_value = []
     res = client.get("/", headers=ALICE)
