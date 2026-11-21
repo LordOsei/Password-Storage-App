@@ -16,7 +16,7 @@
     {% if user %}
     <div class="account">
       <span class="user">{{ user }}</span>
-      {% if auth_mode() == "header" %}<a class="sign-out" href="/.auth/logout">Sign out</a>{% endif %}
+      {% if auth_mode() == "header" %}<a class="sign-out" href="/.auth/logout?post_logout_redirect_uri=/welcome">Sign out</a>{% endif %}
     </div>
     {% endif %}
   </header>

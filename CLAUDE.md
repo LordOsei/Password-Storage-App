@@ -27,6 +27,7 @@ There is no linter or formatter configured. Production startup is `gunicorn -w 2
 - `KEY_VAULT_URL` (required). Local dev should point at a separate **dev** vault, never the real one.
 - `AUTH_MODE`: `header` (prod, the default) or `dev`.
 - `LOCAL_DEV_USER`: the identity to act as when `AUTH_MODE=dev`.
+- `ALLOWED_OBJECT_IDS`: comma-separated Entra object IDs allowed in `header` mode. Empty denies everyone, and the app refuses to start on App Service without it. It is an App Service app setting, not stored in git. Add it **before** deploying code that needs it.
 
 `settings` and the Key Vault `_client` are both created at **import time**. Importing `app.keyvault` without `KEY_VAULT_URL` set will fail, which is why the tests set it with `os.environ.setdefault` before they import from `app`.
 
@@ -44,7 +45,15 @@ There is no linter or formatter configured. Production startup is `gunicorn -w 2
 
 **Delete** is a soft delete (`begin_delete_secret`), so deleted entries can still be recovered from the vault's "Deleted secrets".
 
-**Auth (`app/auth.py`)**: the `get_current_user` dependency reads the `X-MS-CLIENT-PRINCIPAL-NAME` header that Easy Auth injects. In `dev` mode it returns `LOCAL_DEV_USER` instead, so the ownership logic runs the same way locally. Every route depends on it, except `/healthz` and `/welcome`. `/welcome` is a deliberately public landing page that carries the Open Graph link-preview tags. Easy Auth's `excludedPaths` lets exactly `/welcome`, `/static/og-image.png`, `/static/favicon.svg` and `/static/style.css` through without sign-in, so `/welcome` must never show account data or touch the vault. Because `get_current_user` trusts the header, never exclude `/`, `/static/*`, or any route that uses it. Set the paths as a plain comma list: `az webapp auth update -g <rg> -n <app> --excluded-paths "/welcome,/static/og-image.png,/static/favicon.svg,/static/style.css"`. With `[...]` the brackets get stored as part of the paths. A change can take a minute or two to reach the site. Afterwards, check while signed out that `/` and `/secrets/<id>/reveal` still return 401, including with a forged `X-MS-CLIENT-PRINCIPAL-NAME` header.
+**Auth (`app/auth.py`)**: in `dev` mode `get_current_user` returns `LOCAL_DEV_USER`, so the ownership logic runs the same way locally. In `header` mode it requires both `X-MS-CLIENT-PRINCIPAL-NAME` and `X-MS-CLIENT-PRINCIPAL-ID`, which Easy Auth injects. If either is missing it raises `NotAuthenticated`. If the object ID is not in `ALLOWED_OBJECT_IDS` it returns 403. That is our own check on top of Easy Auth's `allowedPrincipals`. A handler in `app/main.py` turns `NotAuthenticated` into a 303 redirect to `/welcome` for a GET with `Accept: text/html`, and a 401 JSON response for everything else. `app.js` treats a 401 from reveal as an expired session and reloads the page. Every route depends on `get_current_user`, except `/healthz`, `/welcome` and `/static`. `/welcome` is a deliberately public landing page with the Open Graph link-preview tags, so it must never show account data or touch the vault. FastAPI's `/docs`, `/redoc` and `/openapi.json` are disabled because they would be public.
+
+**Easy Auth config**: `unauthenticatedClientAction` is `AllowAnonymous`, so signed-out visitors reach the app and land on `/welcome`. Easy Auth still handles Microsoft sign-in, still enforces `allowedPrincipals` (Entra object IDs), and strips client-supplied `X-MS-CLIENT-PRINCIPAL-*` headers. That stripping is the only thing stopping a forged identity.
+- **After any Easy Auth change**, wait a minute or two for it to reach the site. Then, while signed out and sending forged `X-MS-CLIENT-PRINCIPAL-NAME` and `X-MS-CLIENT-PRINCIPAL-ID` headers:
+  - `GET /` with `Accept: text/html` must return **303 to `/welcome`**.
+  - `GET /`, `GET /secrets/<id>/reveal` and `POST /secrets` without it must return **401**.
+  - Any 200, 403 or 404 means the forged header got through. **Roll back first and investigate after.** Do the same if a signed-in account not on the list gets in.
+- **Rollback**: `az webapp auth update -g <rg> -n <app> --unauthenticated-client-action RedirectToLoginPage`. Leave `excludedPaths` configured, because they only apply in this mode.
+- **Rollback mode only**: `excludedPaths` must be exactly `/welcome`, `/static/og-image.png`, `/static/favicon.svg` and `/static/style.css`. Never exclude `/`, `/static/*` or any route that uses `get_current_user`. Set them as a plain comma list, because with `[...]` the brackets get stored as part of the paths.
 
 **Credentials**: `DefaultAzureCredential` uses the App Service managed identity in production and your `az login` session locally. Both need the `Key Vault Secrets Officer` role on the vault.
 

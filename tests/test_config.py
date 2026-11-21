@@ -16,6 +16,7 @@ def not_on_app_service(monkeypatch):
     # A dev shell (e.g. VS Code loading .env) may export these; the tests must not depend on it.
     monkeypatch.delenv("AUTH_MODE", raising=False)
     monkeypatch.delenv("LOCAL_DEV_USER", raising=False)
+    monkeypatch.delenv("ALLOWED_OBJECT_IDS", raising=False)
 
 
 def test_default_is_header_mode():
@@ -41,3 +42,15 @@ def test_dev_mode_refused_on_app_service(monkeypatch):
     monkeypatch.setenv("WEBSITE_SITE_NAME", "pwstore-app")
     with pytest.raises(ValidationError):
         Settings(_env_file=None, key_vault_url=VAULT, auth_mode="dev", local_dev_user="me@example.com")
+
+
+def test_header_mode_on_app_service_requires_allowlist(monkeypatch):
+    monkeypatch.setenv("WEBSITE_SITE_NAME", "pwstore-app")
+    with pytest.raises(ValidationError):
+        Settings(_env_file=None, key_vault_url=VAULT)
+
+
+def test_allowlist_is_parsed_and_normalised(monkeypatch):
+    monkeypatch.setenv("WEBSITE_SITE_NAME", "pwstore-app")
+    s = Settings(_env_file=None, key_vault_url=VAULT, allowed_object_ids=" AAA-1 , bbb-2,, ")
+    assert s.allowed_ids == {"aaa-1", "bbb-2"}

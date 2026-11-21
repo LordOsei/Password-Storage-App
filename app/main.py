@@ -4,19 +4,30 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 from fastapi import FastAPI, Request
-from fastapi.responses import PlainTextResponse
+from fastapi.responses import JSONResponse, PlainTextResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
+from app.auth import NotAuthenticated
 from app.routes import pages, secrets
 
 logger = logging.getLogger("app.security")
 
-app = FastAPI(title="Password Store")
+# No /docs, /redoc or /openapi.json: under Easy Auth AllowAnonymous they would be public.
+app = FastAPI(title="Password Store", docs_url=None, redoc_url=None, openapi_url=None)
 
 app.mount("/static", StaticFiles(directory=str(Path(__file__).parent / "static")), name="static")
 
 app.include_router(pages.router)
 app.include_router(secrets.router)
+
+
+@app.exception_handler(NotAuthenticated)
+async def not_authenticated(request: Request, _exc: NotAuthenticated):
+    # Signed-out page loads land on the public welcome page; anything else (the reveal fetch,
+    # form POSTs, API clients) gets a plain 401.
+    if request.method == "GET" and "text/html" in request.headers.get("accept", ""):
+        return RedirectResponse("/welcome", status_code=303)
+    return JSONResponse({"detail": "Not authenticated"}, status_code=401)
 
 SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
 
