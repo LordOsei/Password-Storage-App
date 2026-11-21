@@ -14,8 +14,10 @@ from app.main import app
 ID = "pw-" + "1" * 32
 MISSING_ID = "pw-" + "0" * 32
 
-ALICE = {"X-MS-CLIENT-PRINCIPAL-NAME": "alice@example.com"}
-MALLORY = {"X-MS-CLIENT-PRINCIPAL-NAME": "mallory@example.com"}
+ALICE_OID = "aaaaaaaa-0000-0000-0000-000000000001"
+MALLORY_OID = "bbbbbbbb-0000-0000-0000-000000000002"
+ALICE = {"X-MS-CLIENT-PRINCIPAL-NAME": "alice@example.com", "X-MS-CLIENT-PRINCIPAL-ID": ALICE_OID}
+MALLORY = {"X-MS-CLIENT-PRINCIPAL-NAME": "mallory@example.com", "X-MS-CLIENT-PRINCIPAL-ID": MALLORY_OID}
 FORM = {"site": "a.com", "username": "alice", "password": "pw", "notes": ""}
 
 
@@ -37,6 +39,8 @@ def fake_client(monkeypatch):
     client = MagicMock()
     monkeypatch.setattr(keyvault, "_client", client)
     monkeypatch.setattr(settings, "auth_mode", "header")
+    # Both test users are allowed; ownership tests rely on Mallory being signed in but not the owner.
+    monkeypatch.setattr(settings, "allowed_object_ids", f"{ALICE_OID}, {MALLORY_OID.upper()}")
     return client
 
 
@@ -215,7 +219,7 @@ def test_header_has_sign_out_link(client, fake_client):
     fake_client.list_properties_of_secrets.return_value = []
     res = client.get("/", headers=ALICE)
     assert res.status_code == 200
-    assert 'href="/.auth/logout"' in res.text
+    assert 'href="/.auth/logout?post_logout_redirect_uri=/welcome"' in res.text
 
 
 def test_sign_out_link_hidden_in_dev_mode(client, fake_client, monkeypatch):
@@ -262,3 +266,65 @@ def test_welcome_does_not_reflect_host_header(client, monkeypatch):
     r = client.get("/welcome", headers={"Host": "evil.example"})
     assert r.status_code == 200
     assert "evil.example" not in r.text
+
+
+BROWSER = {"Accept": "text/html,application/xhtml+xml,*/*;q=0.8"}
+
+
+@pytest.mark.parametrize("path", ["/", "/add", f"/secrets/{ID}/edit"])
+def test_signed_out_page_load_lands_on_welcome(client, fake_client, path):
+    r = client.get(path, headers=BROWSER)
+    assert r.status_code == 303
+    assert r.headers["location"] == "/welcome"
+    assert r.headers["Cache-Control"] == "no-store"
+    assert not fake_client.method_calls
+
+
+def test_signed_out_reveal_is_401_not_redirect(client, fake_client):
+    r = client.get(f"/secrets/{ID}/reveal", headers=BROWSER | {"Accept": "*/*"})
+    assert r.status_code == 401
+    assert r.json() == {"detail": "Not authenticated"}
+    assert not fake_client.method_calls
+
+
+@pytest.mark.parametrize("method,path", [
+    ("post", "/secrets"), ("post", f"/secrets/{ID}/update"), ("post", f"/secrets/{ID}/delete"),
+])
+def test_signed_out_posts_are_401(client, fake_client, method, path):
+    r = getattr(client, method)(path, data=FORM, headers=BROWSER)
+    assert r.status_code == 401
+    assert not fake_client.method_calls
+
+
+def test_signed_in_page_load_is_not_redirected(client, fake_client):
+    fake_client.list_properties_of_secrets.return_value = []
+    r = client.get("/", headers=BROWSER | ALICE)
+    assert r.status_code == 200
+    assert 'href="/.auth/logout?post_logout_redirect_uri=/welcome"' in r.text
+
+
+def test_signed_in_but_not_allowlisted_is_403(client, fake_client):
+    outsider = {"X-MS-CLIENT-PRINCIPAL-NAME": "osai@example.com",
+                "X-MS-CLIENT-PRINCIPAL-ID": "cccccccc-0000-0000-0000-000000000003"}
+    for path in ["/", f"/secrets/{ID}/reveal"]:
+        assert client.get(path, headers=BROWSER | outsider).status_code == 403
+    assert client.post("/secrets", data=FORM, headers=outsider).status_code == 403
+    assert not fake_client.method_calls
+
+
+def test_name_header_without_object_id_is_not_signed_in(client, fake_client):
+    name_only = {"X-MS-CLIENT-PRINCIPAL-NAME": "alice@example.com"}
+    assert client.get("/", headers=BROWSER | name_only).headers["location"] == "/welcome"
+    assert client.get(f"/secrets/{ID}/reveal", headers=name_only).status_code == 401
+    assert not fake_client.method_calls
+
+
+def test_empty_allowlist_denies_everyone(client, fake_client, monkeypatch):
+    monkeypatch.setattr(settings, "allowed_object_ids", "")
+    assert client.get("/", headers=ALICE).status_code == 403
+    assert not fake_client.method_calls
+
+
+@pytest.mark.parametrize("path", ["/docs", "/redoc", "/openapi.json"])
+def test_api_docs_are_disabled(client, path):
+    assert client.get(path).status_code == 404

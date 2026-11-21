@@ -6,10 +6,22 @@ const GENERATOR_CHARS =
 
 const hideTimers = new WeakMap();
 
+class SessionExpired extends Error {}
+
 async function fetchPassword(id) {
   const res = await fetch(`/secrets/${id}/reveal`, { cache: "no-store" });
+  if (res.status === 401) throw new SessionExpired();
   if (!res.ok) throw new Error(`reveal failed: ${res.status}`);
   return (await res.json()).password;
+}
+
+function handleFetchError(err, fallbackMessage) {
+  if (err instanceof SessionExpired) {
+    alert("Your session has expired. Please sign in again.");
+    location.reload(); // a signed-out page load lands on the welcome page / sign-in
+    return;
+  }
+  alert(fallbackMessage);
 }
 
 function hidePassword(row) {
@@ -30,8 +42,8 @@ async function onReveal(btn) {
   }
   try {
     value.textContent = await fetchPassword(btn.dataset.id);
-  } catch {
-    alert("Could not reveal password.");
+  } catch (err) {
+    handleFetchError(err, "Could not reveal password.");
     return;
   }
   value.hidden = false;
@@ -47,8 +59,8 @@ async function onCopy(btn) {
   try {
     password = !value.hidden && value.textContent ? value.textContent : await fetchPassword(btn.dataset.id);
     await navigator.clipboard.writeText(password);
-  } catch {
-    alert("Could not copy password.");
+  } catch (err) {
+    handleFetchError(err, "Could not copy password.");
     return;
   }
   btn.textContent = "Copied!";
